@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>ASCII Shooter 3.1 FIXED</title>
+
+<style>
+body {
+  margin: 0;
+  background: black;
+  color: #00ff41;
+  font-family: monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+#game {
+  white-space: pre;
+  font-size: 13px;
+  line-height: 13px;
+}
+</style>
+</head>
+
+<body>
+<div id="game"></div>
+
+<script>
+const W = 60;
+const H = 30;
+
+let player = { x: Math.floor(W/2) };
+let bullets = [];
+let enemies = [];
+let explosions = [];
+
+let score = 0;
+let lives = 5;
+let level = 1;
+let tick = 0;
+
+const gameEl = document.getElementById("game");
+
+/* управление */
+document.addEventListener("keydown", e => {
+  if(e.key === "ArrowLeft") player.x--;
+  if(e.key === "ArrowRight") player.x++;
+  if(e.key === " ") shoot();
+});
+
+/* стрельба */
+function shoot(){
+  bullets.push({ x: player.x, y: H-4 });
+  bullets.push({ x: player.x-1, y: H-4 });
+  bullets.push({ x: player.x+1, y: H-4 });
+}
+
+/* враги */
+function spawnEnemy(){
+  enemies.push({
+    x: Math.floor(Math.random()*(W-2))+1,
+    y: 1,
+    type: Math.random()<0.3 ? "heavy" : "normal",
+    hp: Math.random()<0.3 ? 3 : 1
+  });
+}
+
+/* обновление */
+function update(){
+  tick++;
+
+  if(tick % 300 === 0) level++;
+
+  /* границы игрока */
+  if(player.x < 2) player.x = 2;
+  if(player.x > W-3) player.x = W-3;
+
+  /* пули */
+  for(let i = bullets.length-1; i >= 0; i--){
+    bullets[i].y--;
+    if(bullets[i].y <= 0){
+      bullets.splice(i,1);
+    }
+  }
+
+  /* враги */
+  for(let i = enemies.length-1; i >= 0; i--){
+    enemies[i].y++;
+
+    if(enemies[i].y >= H-2){
+      lives--;
+      enemies.splice(i,1);
+    }
+  }
+
+  /* столкновения */
+  for(let bi = bullets.length-1; bi >= 0; bi--){
+    for(let ei = enemies.length-1; ei >= 0; ei--){
+      let b = bullets[bi];
+      let e = enemies[ei];
+
+      if(b.x === e.x && b.y === e.y){
+        e.hp--;
+        bullets.splice(bi,1);
+
+        explosions.push({x:e.x,y:e.y,t:5});
+
+        if(e.hp <= 0){
+          enemies.splice(ei,1);
+          score += (e.type === "heavy") ? 5 : 1;
+        }
+        break;
+      }
+    }
+  }
+
+  /* взрывы */
+  for(let i = explosions.length-1; i >= 0; i--){
+    explosions[i].t--;
+    if(explosions[i].t <= 0){
+      explosions.splice(i,1);
+    }
+  }
+
+  /* спавн */
+  if(Math.random() < 0.04 + level*0.008){
+    spawnEnemy();
+  }
+}
+
+/* рендер */
+function draw(){
+  let grid = [];
+
+  for(let y=0;y<H;y++){
+    grid[y] = new Array(W).fill(" ");
+  }
+
+  /* рамка */
+  for(let x=0;x<W;x++){
+    grid[0][x] = "=";
+    grid[H-1][x] = "=";
+  }
+  for(let y=0;y<H;y++){
+    grid[y][0] = "|";
+    grid[y][W-1] = "|";
+  }
+
+  /* игрок */
+  grid[H-3][player.x] = "A";
+  grid[H-2][player.x-1] = "/";
+  grid[H-2][player.x] = "^";
+  grid[H-2][player.x+1] = "\\";
+
+  /* пули */
+  for(let b of bullets){
+    if(b.y > 0 && b.y < H-1 && b.x > 0 && b.x < W-1){
+      grid[b.y][b.x] = "|";
+    }
+  }
+
+  /* враги */
+  for(let e of enemies){
+    if(e.y > 0 && e.y < H-1 && e.x > 0 && e.x < W-1){
+      grid[e.y][e.x] = (e.type === "heavy") ? "W" : "M";
+    }
+  }
+
+  /* взрывы */
+  for(let ex of explosions){
+    if(ex.y > 0 && ex.y < H-1){
+      let frames = ["*", "o", ".", " "];
+      grid[ex.y][ex.x] = frames[ex.t % frames.length];
+    }
+  }
+
+  /* сборка */
+  let out = "";
+  for(let y=0;y<H;y++){
+    out += grid[y].join("") + "\n";
+  }
+
+  out += `SCORE: ${score}   LIVES: ${lives}   LEVEL: ${level}\n`;
+  out += "← → движение | SPACE стрельба\n";
+
+  if(lives <= 0){
+    out += "\nGAME OVER";
+  }
+
+  gameEl.textContent = out;
+}
+
+/* цикл (стабильный FPS) */
+function loop(){
+  if(lives > 0){
+    update();
+  }
+  draw();
+}
+
+setInterval(loop, 33); // ~30 FPS
+</script>
+
+</body>
+</html>
